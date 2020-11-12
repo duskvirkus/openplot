@@ -1,4 +1,8 @@
-# Open Plot 0.0.0
+# Open Plot 0.1.0
+
+## Line Format
+
+A line of open plot code consists of 12 bytes. 4 bytes for the command and 8 bytes for data. The line is padded with null bytes where the data is not needed.
 
 ## Data Types
 
@@ -7,18 +11,16 @@ Specifies the format for the data types used in open plot.
 - `uint16` - An unsigned 16 bit integer.
 - `float32` - A IEEE 754 32 bit floating point number.
 - `position` - 2 float32, an x position followed by a y position both represented as millimeters.
-- `info code` - uint16
+
+### Endian-ness
+
+All numbers are expressed in little endian format. This is because that's how numbers are stored on arduino. Meaning you'll need to convert them before sending on most computers.
 
 ## Operational Modes
 
-- 0 - **Streaming Mode** - The machine is expecting streaming open plot code.
-- 1 - **Debug Mode** - The machine is expecting any commands for debugging or setup purposes.
+Only one mode is specified currently but this is leaving room for potential updates to the standard.
 
-## Info Codes
-
-- 0 - **General** - ASCII text ending in `\0` (a null character).
-- 1 - **Mode** - `uint16` specifying an operational mode.
-- 2 - **Position** - `position` specifying the current position of the pen.
+- 0 - **Standard Mode**
 
 ## File Names
 
@@ -26,50 +28,37 @@ Open plot files use the file extension `.oplot`. It is case sensitive, lower cas
 
 ## Commands
 
-### Start - `sta`
+### Start - `star`
 
-Start commands open communication with an open plot machine. It is comprised of `sta`, the version number in `uint16`s (major minor patch), and 1 uint16 specifying the operational mode.
+Start commands open communication with an open plot machine. It is comprised of `star`, the version number in `uint16`s (major minor patch), and 1 `uint16` specifying the operational mode.
 
 *Example:*
 ```
-str00000001
+star00100000
 ```
-Starts machine, specifies version 0.0.0, and mode 1 (debug mode).
+Starts machine, specifies version 0.1.0, and mode 0 (standard mode).
 
-### Home - `hom`
+### Home - `home`
 
-Will move to home without the pen contacting the surface. Primarily for use in machines with limit switches. The structure consists of `hom`.
+Will move to home without the pen contacting the drawing surface. The structure consists of `home` followed by padding bytes.
 
-### Change Mode - `cmo`
+*Example:*
+```
+home0000000
+```
 
-Will change the machine's mode. Structure is `cmo` followed by uint16 that specifies the mode to change to.
+### Move - `move`
 
-### Move - `mov`
+Move commands specify moving without the pen contacting the surface. The structure consists of `move` followed by a position.
 
-Move commands specify moving without the pen contacting the surface. The structure consists of `mov` followed by a position.
+### Mark - `mark`
 
-### Mark - `mar`
-
-Moves to specified position while the pen is contacting the surface. The structure is `mar` followed by a position.
-
-### Information - `inf`
-
-Get information about the machine. Structure is `inf` followed by a non-zero info code (see above).
-
-**Important** When in streaming mode reply will only be `rec` and not include any information.
+Moves to specified position while the pen is contacting the surface. The structure is `mark` followed by a position.
 
 ## Replies
 
-In streaming mode the machine will reply with a `rec` or `rer` message. In debug mode the machine will reply with an `rin` or `rer` message.
+Replies consist of 4 bytes with an optional message of any length that follows.
 
-### Received - `rec`
+The machine will respond with a `done` reply once it has completed a line. Indicating that the machine is ready for another line.
 
-Acknowledgement that command was received and executed. The machine is ready for the next command. Format is simply `rec`.
-
-### Reply Error - `rer`
-
-Reply indicating something went wrong. `sta` command is required to restart the machine after an error occurred. Format is `rer` followed by optionally any number of ASCII characters that end in a `\0` (a null character).
-
-### Reply Information - `rin`
-
-The same as `rec` just with an optional information message. Format is `rin` followed by an info code and the format specified by that info code (see above).
+`eror` replies will be sent when a problem is detected. `eror` messages will contain messages in ASCII text terminated with a `'\0'` (null character).
